@@ -7330,6 +7330,7 @@ class ContextCommand(GenericCommand):
         self["grow_stack_down"] = (False, "Order of stack downward starts at largest down to stack pointer")
         self["nb_lines_backtrace"] = (10, "Number of line in the backtrace pane")
         self["nb_lines_backtrace_before"] = (2, "Number of line in the backtrace pane before selected frame")
+        self["nb_characters_backtrace"] = (50, "Maximum number of characters allowed per backtrace")
         self["nb_lines_threads"] = (-1, "Number of line in the threads pane")
         self["nb_lines_code"] = (6, "Number of instruction after $pc")
         self["nb_lines_code_prev"] = (3, "Number of instruction before $pc")
@@ -7859,6 +7860,10 @@ class ContextCommand(GenericCommand):
         level = max(len(frames) - nb_backtrace_before - 1, 0)
         current_frame = frames[level]
 
+        nb_characters_backtrace = self["nb_characters_backtrace"]
+        if nb_characters_backtrace <= 0:
+            nb_characters_backtrace = None
+
         while current_frame:
             current_frame.select()
             if not current_frame.is_valid():
@@ -7872,7 +7877,10 @@ class ContextCommand(GenericCommand):
                 frame_args = gdb.FrameDecorator.FrameDecorator(current_frame).frame_args() or []
                 m = "{}({})".format(Color.greenify(name),
                                     ", ".join(["{}={!s}".format(Color.yellowify(x.sym),
-                                                                x.sym.value(current_frame)) for x in frame_args]))
+                                                                str(x.sym.value(current_frame))[0] if (x.sym.value(current_frame).type.code == gdb.TYPE_CODE_PTR and x.sym.type.target().code == gdb.TYPE_CODE_CHAR) else x.sym.value(current_frame)) for x in frame_args]))
+                print(frame_args[0].sym.type)
+                if (x.sym.value(current_frame).type.code == gdb.TYPE_CODE_PTR and x.sym.type.target().code == gdb.TYPE_CODE_CHAR) else x.sym.value(current_frame)
+                    print(str(x.sym.value(current_frame))[0])
                 items.append(m)
             else:
                 try:
@@ -11300,7 +11308,8 @@ if __name__ == "__main__":
         pyenv_root = gef_pystring(subprocess.check_output([pyenv, "root"]).strip())
         pyenv_version = gef_pystring(subprocess.check_output([pyenv, "version-name"]).strip())
         site_packages_dir = pathlib.Path(pyenv_root) / f"versions/{pyenv_version}/lib/python{pyenv_version[:3]}/site-packages"
-        assert site_packages_dir.is_dir()
+        print(site_packages_dir)
+        #assert site_packages_dir.is_dir()
         site.addsitedir(str(site_packages_dir.absolute()))
     except FileNotFoundError:
         pass
